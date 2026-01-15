@@ -9,6 +9,6 @@
 
 <div align="center">
   <a href="https://t.me/CyberCoderBD">
-    <img src="public/telegram-banner.svg" alt="Join our Telegram Channel" width="600">
+    <img src="public/e31obpe31obpe31o.jpg" alt="Join our Telegram Channel" width="600">
   </a>
 </div>
