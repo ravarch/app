@@ -1,16 +1,30 @@
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "app",
-	"main": "src/index.ts",
-	"compatibility_date": "2025-09-27",
-	"compatibility_flags": [
-		"global_fetch_strictly_public"
-	],
-	"assets": {
-		// Enable SPA fallback: serves index.html for unknown routes (client-side routing)
-		"not_found_handling": "single-page-application"
-	},
-	"observability": {
-		"enabled": true
-	}
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "react-spa",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-09-23",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  
+  // 1. Performance: Smart Placement
+  // Moves the Worker closer to your backend data (database/external API)
+  // to reduce round-trip latency for data-heavy requests.
+  "placement": {
+    "mode": "smart"
+  },
+
+  // 2. Hosting: Static Assets (Hybrid Architecture)
+  // Serves the React frontend from the high-performance global CDN.
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // 3. Routing: SPA Support
+    // Automatically serves index.html for unknown client-side routes (e.g., /about)
+    "not_found_handling": "single-page-application"
+  },
+
+  "observability": {
+    "enabled": true
+  }
 }
