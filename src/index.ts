@@ -17,7 +17,7 @@ interface Env {
   JWT_SECRET: string; // Set via `wrangler secret put JWT_SECRET`
 }
 
-const JWT_SECRET = "CHANGE_THIS_TO_A_REAL_SECRET_IN_PROD"; 
+const JWT_SECRET = "e1e4a56f669438fe271b162b7b67ca7b"; 
 const DOMAIN = "drkingbd.cc";
 
 const app = new Hono<{ Bindings: Env }>();
