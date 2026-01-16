@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Inbox, Send, Menu, X, Plus, Calendar, LogOut, 
-  Activity, Search, Shield, Paperclip, Loader2 
+  Inbox, Send, Plus, Activity, X, LogOut, Loader2, Calendar 
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { TelegramBanner } from './components/TelegramBanner';
@@ -32,6 +31,7 @@ export default function App() {
   return <Dashboard token={token} user={user} onLogout={logout} />;
 }
 
+// --- UPDATED AUTH SCREEN (FIXED CRASH) ---
 function AuthScreen({ onLogin }: { onLogin: (t: string, u: User) => void }) {
   const [isRegister, setIsRegister] = useState(false);
   const [form, setForm] = useState({ username: '', password: '' });
@@ -42,34 +42,90 @@ function AuthScreen({ onLogin }: { onLogin: (t: string, u: User) => void }) {
     e.preventDefault();
     setLoading(true);
     setError('');
+    
     try {
-      const res = await fetch(isRegister ? '/api/auth/register' : '/api/auth/login', {
-        method: 'POST', body: JSON.stringify(form)
+      const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
+      const res = await fetch(endpoint, {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
       });
-      const data = await res.json();
+
+      const contentType = res.headers.get("content-type");
+      let data;
+      
+      // CRITICAL FIX: Check if response is JSON before parsing
+      if (contentType && contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(`Server Error (${res.status}): ${text}`);
+      }
+
       if (!res.ok) throw new Error(data.error || 'Request failed');
       
-      if (isRegister) { setIsRegister(false); setError('Success. Login now.'); }
-      else onLogin(data.token, data.user);
-    } catch (e: any) { setError(e.message); }
-    setLoading(false);
+      if (isRegister) { 
+        setIsRegister(false); 
+        setError('Success. Please log in.'); 
+      } else { 
+        onLogin(data.token, data.user); 
+      }
+    } catch (e: any) { 
+      console.error("Auth Failed:", e);
+      setError(e.message || "An unexpected error occurred"); 
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4 text-white">
-      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
-        <h1 className="text-2xl font-bold mb-6 text-center">{isRegister ? 'Register' : 'Login'}</h1>
-        {error && <div className="text-red-400 text-sm mb-4 bg-red-500/10 p-2 rounded">{error}</div>}
+    <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4 text-white font-sans">
+      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl">
+        <h1 className="text-3xl font-bold mb-2 text-center text-white">RavArch</h1>
+        <p className="text-zinc-500 text-center mb-8">{isRegister ? 'Create your account' : 'Welcome back'}</p>
+        
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-lg mb-4 break-words">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={submit} className="space-y-4">
-          <input className="w-full bg-black/50 border border-zinc-700 rounded p-3" placeholder="Username" onChange={e => setForm({...form, username: e.target.value})} />
-          <input className="w-full bg-black/50 border border-zinc-700 rounded p-3" type="password" placeholder="Password" onChange={e => setForm({...form, password: e.target.value})} />
-          <button disabled={loading} className="w-full bg-indigo-600 py-3 rounded font-bold hover:bg-indigo-500 disabled:opacity-50 flex justify-center">
-            {loading ? <Loader2 className="animate-spin" /> : (isRegister ? 'Sign Up' : 'Sign In')}
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 mb-1 uppercase tracking-wider">Username</label>
+            <input 
+              className="w-full bg-black/50 border border-zinc-700 focus:border-indigo-500 rounded-lg p-3 text-white outline-none transition-colors" 
+              placeholder="Enter username" 
+              value={form.username}
+              onChange={e => setForm({...form, username: e.target.value})} 
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 mb-1 uppercase tracking-wider">Password</label>
+            <input 
+              className="w-full bg-black/50 border border-zinc-700 focus:border-indigo-500 rounded-lg p-3 text-white outline-none transition-colors" 
+              type="password" 
+              placeholder="••••••••" 
+              value={form.password}
+              onChange={e => setForm({...form, password: e.target.value})} 
+            />
+          </div>
+          <button 
+            disabled={loading} 
+            className="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-lg font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center mt-6"
+          >
+            {loading ? <Loader2 className="animate-spin" size={20} /> : (isRegister ? 'Sign Up' : 'Sign In')}
           </button>
         </form>
-        <button onClick={() => setIsRegister(!isRegister)} className="w-full mt-4 text-sm text-zinc-500 hover:text-zinc-300">
-          {isRegister ? 'Have an account? Sign In' : 'Create account'}
-        </button>
+        
+        <div className="mt-6 text-center">
+          <button 
+            onClick={() => { setIsRegister(!isRegister); setError(''); }} 
+            className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+          </button>
+        </div>
       </div>
     </div>
   );
