@@ -1,22 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Inbox, Send, Plus, Activity, X, LogOut, Loader2, Calendar, Paperclip
+  Inbox, Send, Plus, Activity, X, LogOut, Loader2, Calendar, Paperclip, Copy
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { TelegramBanner } from './components/TelegramBanner';
 
 // --- TYPES ---
 interface User { id: string; username: string; }
-interface Email { 
-  id: string; 
-  subject: string; 
-  summary: string; 
-  sender_address: string; 
-  received_at: number; 
-  is_read: number; 
-  category: string;
-  has_attachments?: number; // Added to support new schema
-}
+interface Email { id: string; subject: string; summary: string; sender_address: string; received_at: number; is_read: number; category: string; has_attachments?: number; }
 interface Alias { address: string; name: string; }
 interface Stats { total_emails: number; spam_blocked: number; scheduled_count: number; }
 
@@ -35,114 +26,41 @@ const useAuth = () => {
   return { token, user, login, logout };
 };
 
-// --- MAIN APP COMPONENT ---
+// --- MAIN APP ---
 export default function App() {
   const { token, user, login, logout } = useAuth();
-  if (!token || !user) return <AuthScreen onLogin={login} />;
+  const [isProvisioning, setIsProvisioning] = useState(false);
+
+  // AUTO-CREATE GUEST ACCOUNT IF NO TOKEN
+  useEffect(() => {
+    if (!token && !isProvisioning) {
+      setIsProvisioning(true);
+      fetch('/api/auth/guest', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.token) login(data.token, data.user);
+        })
+        .catch(err => console.error("Provisioning failed", err))
+        .finally(() => setIsProvisioning(false));
+    }
+  }, [token, isProvisioning]);
+
+  if (!token || !user) {
+    return (
+      <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center text-white gap-6">
+        <Loader2 className="animate-spin text-indigo-500" size={48} />
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-2">Generating Temporary Inbox</h1>
+          <p className="text-zinc-500">Assigning a secure, anonymous email address...</p>
+        </div>
+      </div>
+    );
+  }
+
   return <Dashboard token={token} user={user} onLogout={logout} />;
 }
 
-// --- AUTH SCREEN (Login/Register) ---
-function AuthScreen({ onLogin }: { onLogin: (t: string, u: User) => void }) {
-  const [isRegister, setIsRegister] = useState(false);
-  const [form, setForm] = useState({ username: '', password: '' });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    
-    try {
-      const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
-      const res = await fetch(endpoint, {
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      });
-
-      const contentType = res.headers.get("content-type");
-      let data;
-      
-      // CRITICAL FIX: Robust JSON handling
-      if (contentType && contentType.includes("application/json")) {
-        data = await res.json();
-      } else {
-        const text = await res.text();
-        throw new Error(`Server Error (${res.status}): ${text}`);
-      }
-
-      if (!res.ok) throw new Error(data.error || 'Request failed');
-      
-      if (isRegister) { 
-        setIsRegister(false); 
-        setError('Success. Please log in.'); 
-      } else { 
-        onLogin(data.token, data.user); 
-      }
-    } catch (e: any) { 
-      console.error("Auth Failed:", e);
-      setError(e.message || "An unexpected error occurred"); 
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4 text-white font-sans">
-      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl">
-        <h1 className="text-3xl font-bold mb-2 text-center text-white">RavArch</h1>
-        <p className="text-zinc-500 text-center mb-8">{isRegister ? 'Create your account' : 'Welcome back'}</p>
-        
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-lg mb-4 break-words">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-zinc-500 mb-1 uppercase tracking-wider">Username</label>
-            <input 
-              className="w-full bg-black/50 border border-zinc-700 focus:border-indigo-500 rounded-lg p-3 text-white outline-none transition-colors" 
-              placeholder="Enter username" 
-              value={form.username}
-              onChange={e => setForm({...form, username: e.target.value})} 
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-500 mb-1 uppercase tracking-wider">Password</label>
-            <input 
-              className="w-full bg-black/50 border border-zinc-700 focus:border-indigo-500 rounded-lg p-3 text-white outline-none transition-colors" 
-              type="password" 
-              placeholder="••••••••" 
-              value={form.password}
-              onChange={e => setForm({...form, password: e.target.value})} 
-            />
-          </div>
-          <button 
-            disabled={loading} 
-            className="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-lg font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center mt-6"
-          >
-            {loading ? <Loader2 className="animate-spin" size={20} /> : (isRegister ? 'Sign Up' : 'Sign In')}
-          </button>
-        </form>
-        
-        <div className="mt-6 text-center">
-          <button 
-            onClick={() => { setIsRegister(!isRegister); setError(''); }} 
-            className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
-          >
-            {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// --- DASHBOARD LAYOUT ---
+// --- DASHBOARD ---
 function Dashboard({ token, user, onLogout }: { token: string, user: User, onLogout: () => void }) {
   const [view, setView] = useState('inbox');
   const [showUsage, setShowUsage] = useState(false);
@@ -161,23 +79,37 @@ function Dashboard({ token, user, onLogout }: { token: string, user: User, onLog
       .catch(console.error);
   }, [token]);
 
+  const copyAddress = () => {
+    navigator.clipboard.writeText(currentAlias);
+    // Could add toast here
+  };
+
   return (
     <div className="flex h-screen bg-[#09090b] text-zinc-100 overflow-hidden font-sans">
       <aside className="w-64 bg-[#0c0c0e] border-r border-white/5 flex flex-col p-4 hidden md:flex">
         <div className="font-bold mb-8 text-xl px-2 text-indigo-400">RavArch</div>
-        <button onClick={() => setView('compose')} className="w-full bg-white text-black py-2 rounded-lg font-medium mb-6 flex items-center justify-center gap-2 hover:bg-zinc-200 transition-colors"><Plus size={18}/> Compose</button>
+        
+        {/* Quick Copy Section */}
+        <div className="mb-6 bg-zinc-900 border border-white/10 rounded-lg p-3">
+            <div className="text-xs text-zinc-500 mb-1 uppercase tracking-wider">Your Address</div>
+            <div className="flex items-center gap-2 text-sm font-mono text-white truncate mb-2">
+                {currentAlias || 'Loading...'}
+            </div>
+            <button onClick={copyAddress} className="w-full bg-white/5 hover:bg-white/10 text-xs py-1.5 rounded flex items-center justify-center gap-2 transition-colors">
+                <Copy size={12} /> Copy Address
+            </button>
+        </div>
+
+        <button onClick={() => setView('compose')} className="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium mb-6 flex items-center justify-center gap-2 hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"><Plus size={18}/> Compose</button>
+        
         <nav className="space-y-1 flex-1">
           <button onClick={() => setView('inbox')} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${view === 'inbox' ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-400 hover:text-white'}`}><Inbox size={18}/> Inbox</button>
           <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-zinc-400 hover:text-white cursor-not-allowed opacity-50"><Send size={18}/> Sent</button>
         </nav>
         
         <div className="mt-4 pt-4 border-t border-white/5">
-           <div className="text-xs font-bold text-zinc-500 uppercase mb-2">Account</div>
-           <select className="w-full bg-black border border-white/10 rounded p-2 text-sm text-zinc-300 mb-4 outline-none focus:border-indigo-500" value={currentAlias} onChange={e => setCurrentAlias(e.target.value)}>
-             {aliases.map(a => <option key={a.address} value={a.address}>{a.address}</option>)}
-           </select>
            <button onClick={() => setShowUsage(true)} className="w-full flex items-center gap-2 px-3 py-2 text-zinc-500 hover:text-white text-sm transition-colors"><Activity size={16}/> Usage</button>
-           <button onClick={onLogout} className="w-full flex items-center gap-2 px-3 py-2 text-zinc-500 hover:text-red-400 text-sm transition-colors"><LogOut size={16}/> Sign Out</button>
+           <button onClick={onLogout} className="w-full flex items-center gap-2 px-3 py-2 text-zinc-500 hover:text-red-400 text-sm transition-colors"><LogOut size={16}/> New Identity</button>
         </div>
       </aside>
 
@@ -192,7 +124,6 @@ function Dashboard({ token, user, onLogout }: { token: string, user: User, onLog
   );
 }
 
-// --- INBOX VIEW (Updated for Attachments) ---
 function InboxView({ token }: { token: string }) {
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
@@ -209,13 +140,17 @@ function InboxView({ token }: { token: string }) {
   return (
     <div className="flex-1 overflow-y-auto p-8">
       <h2 className="text-2xl font-bold mb-6">Inbox</h2>
-      {emails.length === 0 ? <div className="text-zinc-500 text-center mt-20">No emails found.</div> : 
+      {emails.length === 0 ? (
+        <div className="flex flex-col items-center justify-center mt-20 text-zinc-500 gap-4">
+           <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center"><Inbox size={32} /></div>
+           <p>Waiting for incoming emails...</p>
+        </div>
+      ) : 
       emails.map(e => (
         <div key={e.id} className="border-b border-white/5 p-4 hover:bg-white/5 cursor-pointer transition-colors group">
           <div className="flex justify-between text-sm mb-1">
             <span className={e.is_read ? 'text-zinc-500' : 'text-white font-medium group-hover:text-indigo-300'}>{e.sender_address}</span>
             <span className="flex items-center gap-2 text-zinc-600">
-               {/* Attachment Icon */}
                {e.has_attachments === 1 && <Paperclip size={14} className="text-zinc-400" />}
                <span>{formatDistanceToNow(e.received_at)} ago</span>
             </span>
@@ -231,7 +166,6 @@ function InboxView({ token }: { token: string }) {
   );
 }
 
-// --- USAGE ANALYTICS MODAL ---
 function UsageModal({ token, close }: { token: string, close: () => void }) {
   const [stats, setStats] = useState<Stats | null>(null);
   useEffect(() => { fetch('/api/usage', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(setStats); }, [token]);
@@ -253,7 +187,6 @@ function UsageModal({ token, close }: { token: string, close: () => void }) {
   );
 }
 
-// --- EMAIL COMPOSER ---
 function Composer({ token, from, close }: { token: string, from: string, close: () => void }) {
   const [form, setForm] = useState({ to: '', subject: '', body: '', scheduleTime: '' });
   const [status, setStatus] = useState('idle');
