@@ -24,11 +24,16 @@
 		"wrangler": "^4.59.2"
 	},
 	"dependencies": {
-		"@modelcontextprotocol/sdk": "^1.25.2",
+		"postal-mime": "^2.2.0",
 		"@tailwindcss/vite": "^4.1.18",
-		"agents": "^0.3.5",
+		"hono": "^4.6.1",
 		"react": "^19.2.3",
 		"react-dom": "^19.2.3",
+		"lucide-react": "^0.469.0",
+		"framer-motion": "^11.15.0",
+		"date-fns": "^4.1.0",
+		"clsx": "^2.1.1",
+		"tailwind-merge": "^2.6.0",
 		"tailwindcss": "^4.1.18"
 	}
 }
